@@ -163,6 +163,8 @@ namespace IMGUI_STB_NAMESPACE
 #else
 #include "imstb_truetype.h"
 #endif
+#include <ctype.h>
+#include <chrono>
 #endif
 #endif // IMGUI_ENABLE_STB_TRUETYPE
 
@@ -3540,6 +3542,22 @@ void ImFont::RenderChar(ImDrawList* draw_list, float size, ImVec2 pos, ImU32 col
 // Note: as with every ImDrawList drawing function, this expects that the font atlas texture is bound.
 void ImFont::RenderText(ImDrawList* draw_list, float size, ImVec2 pos, ImU32 col, const ImVec4& clip_rect, const char* text_begin, const char* text_end, float wrap_width, bool cpu_fine_clip) const
 {
+    // https://github.com/ocornut/imgui/issues/902#issuecomment-316835510
+
+    static const ImU32 alpha = (col >> 24);
+    static const ImU32 color_codes[9] =
+    {
+        col,                           // 0 default
+        ImColor(255,  49,  49, alpha), // 1 red
+        ImColor(134, 192,   0, alpha), // 2 green
+        ImColor(255, 173,  34, alpha), // 3 yellow
+        ImColor(  0, 135, 193, alpha), // 4 blue
+        ImColor( 32, 197, 255, alpha), // 5 light blue
+        ImColor(151,  80, 221, alpha), // 6 pink
+        ImColor(255, 255, 255, alpha), // 7 white
+        ImColor(  0,   0,   0, alpha), // 8 black
+    };
+
     if (!text_end)
         text_end = text_begin + strlen(text_begin); // ImGui:: functions generally already provides a valid text_end, so this is merely to handle direct calls.
 
@@ -3595,8 +3613,21 @@ void ImFont::RenderText(ImDrawList* draw_list, float size, ImVec2 pos, ImU32 col
 
     const ImU32 col_untinted = col | ~IM_COL32_A_MASK;
 
+    const auto now = std::chrono::high_resolution_clock::now();
+    const auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+
     while (s < text_end)
     {
+        const auto n = s[1];
+        if (*s == '^' && (isdigit(n) || n == ':'))
+        {
+            col = n != ':'
+                ? color_codes[(n - '0') % 9]
+                : ImColor::HSV((milliseconds / 100 % 256) / 255.f, 1.f, 1.f);
+            s += 2;
+            continue;
+        }
+
         if (word_wrap_enabled)
         {
             // Calculate how far we can render. Requires two passes on the string data but keeps the code simple and not intrusive for what's essentially an uncommon feature.
