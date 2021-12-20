@@ -3623,7 +3623,7 @@ void ImFont::RenderText(ImDrawList* draw_list, float size, ImVec2 pos, ImU32 col
         {
             col = n != ':'
                 ? color_codes[(n - '0') % 9]
-                : ImColor::HSV((milliseconds / 100 % 256) / 255.f, 1.f, 1.f);
+                : (ImU32)ImColor::HSV((milliseconds / 100 % 256) / 255.f, 1.f, 1.f);
             s += 2;
             continue;
         }
